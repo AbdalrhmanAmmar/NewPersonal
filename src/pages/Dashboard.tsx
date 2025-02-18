@@ -37,7 +37,7 @@ const Dashboard = () => {
             </h1>
             <p className="text-gray-600 mt-1">Here's an overview of your finances today.</p>
           </div>
-          <div className="text-sm text-gray-500 bg-blue-50 p-3 rounded-lg">
+          <div className="text-sm text-gray-500 bg-blue-50 p-3 rounded-lg"> show 
             <p className="italic">"A penny saved is a penny earned."</p>
             <p className="text-right mt-1">- Benjamin Franklin</p>
           </div>

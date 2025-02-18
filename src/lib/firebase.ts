@@ -20,12 +20,12 @@ export const db = getFirestore(app);
 export const COLLECTIONS = {
   USERS: "users",
   EXPENSES: "expenses",
-  CATEGORIES: "categories",
   GOALS: "goals",
   GOAL_CONTRIBUTIONS: "goal_contributions",
   RECURRING_EXPENSES: "recurring_expenses",
   BUDGETS: "budgets",
 } as const;
+
 
 // Firestore data types
 export interface User {
@@ -41,24 +41,16 @@ export interface User {
 export interface Expense {
   id: string;
   userId: string;
-  categoryId: string;
   amount: number;
   description: string;
+  category: string; // Now a string instead of categoryId
   date: Date;
   paymentMethod: string;
   createdAt: Date;
   updatedAt: Date;
 }
 
-export interface Category {
-  id: string;
-  userId?: string;
-  name: string;
-  color: string;
-  icon: string;
-  isSystem: boolean;
-  createdAt: Date;
-}
+
 
 export interface Goal {
   id: string;

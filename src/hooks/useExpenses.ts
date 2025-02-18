@@ -1,34 +1,34 @@
-import { useEffect } from 'react';
-import { useAuthStore } from '../store/authStore';
-import { useCollection } from './useCollection';
-import { Expense } from '../lib/firebase';
-import { useExpenseStore } from '../store/useExpenseStore';
+import { useEffect } from "react";
+import { useAuthStore } from "../store/authStore";
+import { useCollection } from "./useCollection";
+import { Expense } from "../lib/firebase";
+import { useExpenseStore } from "../store/useExpenseStore";
 
 export function useExpenses() {
   const { user } = useAuthStore();
-  const { setExpenses, setLoading, setError } = useExpenseStore();
-  
+  const expenseStore = useExpenseStore();
+
   const result = useCollection<Expense>(
-    'expenses',
-    [
-      {
-        field: 'userId',
-        operator: '==',
-        value: user?.uid
-      }
-    ],
-    [{ field: 'date', direction: 'desc' }]
+    "expenses",
+    user?.uid
+      ? [{ field: "userId", operator: "==", value: user.uid }]
+      : [], // Prevents running the query when user is not available
+    [{ field: "date", direction: "desc" }]
   );
 
   useEffect(() => {
-    setLoading(result.loading);
+    expenseStore.setLoading(result.loading);
+
     if (result.data) {
-      setExpenses(result.data);
+      expenseStore.setExpenses(result.data);
+    } else if (!result.loading) {
+      expenseStore.setExpenses([]); // Ensure state resets if no data is found
     }
+
     if (result.error) {
-      setError(result.error);
+      expenseStore.setError(result.error);
     }
-  }, [result.data, result.loading, result.error]);
+  }, [JSON.stringify(result)]); // Ensures effect only runs when result changes significantly
 
   return result;
 }

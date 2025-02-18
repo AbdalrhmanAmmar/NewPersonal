@@ -2,6 +2,7 @@ import React from 'react';
 import { DollarSign, TrendingDown, Wallet, PieChart, Calendar } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
 import { useGoalsStore } from '../store/GoalStore';
+import { useExpenseStore } from '../store/useExpenseStore';
 
 
 // Mock data - replace with real data later
@@ -26,6 +27,7 @@ const mockData = {
 const Dashboard = () => {
   const { user } = useAuthStore(); // Access user from Zustand store
   const { goals, fetchGoals, loading, error } = useGoalsStore();
+  const {expenses} = useExpenseStore();
 
   return (
     <div className="space-y-6">
@@ -90,11 +92,11 @@ const Dashboard = () => {
                     <th className="pb-4">Date</th>
                     <th className="pb-4">Description</th>
                     <th className="pb-4">Amount</th>
-                    <th className="pb-4">Method</th>
+                    <th className="pb-4">category</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {mockData.recentTransactions.map((transaction, index) => (
+                  {expenses.map((transaction, index) => (
                     <tr key={index} className="border-t border-gray-50">
                       <td className="py-3 text-sm">
                         <div className="flex items-center">
@@ -106,7 +108,7 @@ const Dashboard = () => {
                       <td className="py-3 text-sm font-medium text-red-600">
                         -${transaction.amount.toFixed(2)}
                       </td>
-                      <td className="py-3 text-sm">{transaction.method}</td>
+                      <td className="py-3 text-sm">{transaction.category}</td>
                     </tr>
                   ))}
                 </tbody>

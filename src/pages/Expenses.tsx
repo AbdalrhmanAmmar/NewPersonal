@@ -1,33 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
-  BarChart3,
-  PieChart,
   DollarSign,
   Calendar,
-  Bell,
-  TrendingUp,
-  Target,
   RefreshCw,
-  FileText,
   Plus,
-  AlertCircle
+  AlertCircle,
 } from 'lucide-react';
+import { useExpenseStore } from '../store/useExpenseStore';
+import { useAuthStore } from '../store/authStore';
+import ExpenseItem from '../components/ExpenseItem';
+import { Expense } from '../lib/firebase';
 
-// Mock data - replace with real data later
-const mockExpenses = [
-  { id: 1, date: '2024-03-15', description: 'Grocery Store', category: 'Groceries', amount: 85.50 },
-  { id: 2, date: '2024-03-14', description: 'Netflix', category: 'Entertainment', amount: 15.99 },
-  { id: 3, date: '2024-03-13', description: 'Gas Station', category: 'Transportation', amount: 45.00 },
-  { id: 4, date: '2024-03-12', description: 'Electric Bill', category: 'Utilities', amount: 120.00 },
-];
-
-const mockCategories = {
-  Groceries: { spent: 350, budget: 400 },
-  Entertainment: { spent: 150, budget: 200 },
-  Transportation: { spent: 180, budget: 250 },
-  Utilities: { spent: 320, budget: 300 },
-  Shopping: { spent: 250, budget: 300 },
-  Healthcare: { spent: 100, budget: 200 },
+const categories = {
+  Groceries: { spent: 0, budget: 400 },
+  Entertainment: { spent: 0, budget: 200 },
+  Transportation: { spent: 0, budget: 250 },
+  Utilities: { spent: 0, budget: 300 },
+  Shopping: { spent: 0, budget: 300 },
+  Healthcare: { spent: 0, budget: 200 },
 };
 
 const mockRecurring = [
@@ -43,8 +33,71 @@ const mockSavingsGoals = [
 ];
 
 const Expenses = () => {
-  const [activeTab, setActiveTab] = useState('overview');
   const [showAddExpense, setShowAddExpense] = useState(false);
+  const { user } = useAuthStore();
+  const { expenses, loading, error, addExpense, fetchExpenses } = useExpenseStore();
+  const [newExpense, setNewExpense] = useState({
+    description: '',
+    amount: '',
+    category: 'Groceries',
+    date: new Date().toISOString().split('T')[0],
+  });
+
+  useEffect(() => {
+    if (user?.uid) {
+      fetchExpenses(user.uid);
+    }
+  }, [user]);
+
+  // Calculate category totals
+  const categoryTotals = expenses.reduce((acc, expense) => {
+    if (!acc[expense.category]) {
+      acc[expense.category] = { spent: 0, budget: categories[expense.category]?.budget || 0 };
+    }
+    acc[expense.category].spent += expense.amount;
+    return acc;
+  }, {...categories});
+
+  const handleAddExpense = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user?.uid) return;
+
+    const expenseData: Omit<Expense, 'id'> = {
+      userId: user.uid,
+      description: newExpense.description,
+      amount: parseFloat(newExpense.amount),
+      category: newExpense.category,
+      date: new Date(newExpense.date),
+      paymentMethod: 'Card', // Default payment method
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    try {
+      await addExpense(expenseData);
+      setShowAddExpense(false);
+      setNewExpense({
+        description: '',
+        amount: '',
+        category: 'Groceries',
+        date: new Date().toISOString().split('T')[0],
+      });
+    } catch (err) {
+      console.error('Error adding expense:', err);
+    }
+  };
+
+  const getCategoryName = (categoryId: string) => {
+    return categoryId; // Since we're using category names directly now
+  };
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-red-500">Error: {error}</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -63,30 +116,6 @@ const Expenses = () => {
         </button>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex space-x-4 border-b border-gray-200">
-        {[
-          { id: 'overview', label: 'Overview', icon: BarChart3 },
-          { id: 'categories', label: 'Categories', icon: PieChart },
-          { id: 'recurring', label: 'Recurring', icon: RefreshCw },
-          { id: 'goals', label: 'Goals', icon: Target },
-          { id: 'reports', label: 'Reports', icon: FileText },
-        ].map(({ id, label, icon: Icon }) => (
-          <button
-            key={id}
-            onClick={() => setActiveTab(id)}
-            className={`flex items-center px-4 py-2 border-b-2 ${
-              activeTab === id
-                ? 'border-blue-600 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700'
-            } -mb-px`}
-          >
-            <Icon className="w-4 h-4 mr-2" />
-            {label}
-          </button>
-        ))}
-      </div>
-
       {/* Main Content */}
       <div className="grid grid-cols-3 gap-6">
         {/* Left Column - Expense List and Forms */}
@@ -98,29 +127,12 @@ const Expenses = () => {
             </div>
             <div className="p-6">
               <div className="space-y-4">
-                {mockExpenses.map((expense) => (
-                  <div
-                    key={expense.id}
-                    className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                  >
-                    <div className="flex items-center space-x-4">
-                      <div className="p-2 bg-blue-100 rounded-lg">
-                        <DollarSign className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="font-medium text-gray-800">{expense.description}</p>
-                        <p className="text-sm text-gray-500">{expense.category}</p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="font-semibold text-gray-800">
-                        ${expense.amount.toFixed(2)}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {new Date(expense.date).toLocaleDateString()}
-                      </p>
-                    </div>
-                  </div>
+                {expenses.map((expense) => (
+                  <ExpenseItem 
+                    key={expense.id} 
+                    expense={expense} 
+                    getCategoryName={getCategoryName}
+                  />
                 ))}
               </div>
             </div>
@@ -130,7 +142,6 @@ const Expenses = () => {
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Spending Trends</h2>
             <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
-              {/* Placeholder for actual chart */}
               <p className="text-gray-500">Monthly Spending Trend Chart</p>
             </div>
           </div>
@@ -142,12 +153,12 @@ const Expenses = () => {
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Budget Overview</h2>
             <div className="space-y-4">
-              {Object.entries(mockCategories).map(([category, { spent, budget }]) => (
+              {Object.entries(categoryTotals).map(([category, { spent, budget }]) => (
                 <div key={category}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-600">{category}</span>
                     <span className="text-gray-800">
-                      ${spent} / ${budget}
+                      ${spent.toFixed(2)} / ${budget}
                     </span>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-2">
@@ -221,14 +232,6 @@ const Expenses = () => {
                   </p>
                 </div>
               </div>
-              <div className="flex items-start space-x-3 p-3 bg-green-50 rounded-lg">
-                <TrendingUp className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm text-gray-800">
-                    Great job! Your grocery spending is under budget this month.
-                  </p>
-                </div>
-              </div>
             </div>
           </div>
         </div>
@@ -239,15 +242,18 @@ const Expenses = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <h2 className="text-xl font-semibold mb-4">Add New Expense</h2>
-            <form className="space-y-4">
+            <form onSubmit={handleAddExpense} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Description
                 </label>
                 <input
                   type="text"
+                  value={newExpense.description}
+                  onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="Enter description"
+                  required
                 />
               </div>
               <div>
@@ -256,21 +262,30 @@ const Expenses = () => {
                 </label>
                 <input
                   type="number"
+                  value={newExpense.amount}
+                  onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="Enter amount"
+                  required
+                  step="0.01"
+                  min="0"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Category
                 </label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                  <option>Groceries</option>
-                  <option>Entertainment</option>
-                  <option>Transportation</option>
-                  <option>Utilities</option>
-                  <option>Shopping</option>
-                  <option>Healthcare</option>
+                <select
+                  value={newExpense.category}
+                  onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
+                >
+                  {Object.keys(categories).map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
                 </select>
               </div>
               <div>
@@ -279,7 +294,10 @@ const Expenses = () => {
                 </label>
                 <input
                   type="date"
+                  value={newExpense.date}
+                  onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                  required
                 />
               </div>
               <div className="flex space-x-3">

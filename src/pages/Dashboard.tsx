@@ -1,6 +1,7 @@
 import React from 'react';
 import { DollarSign, TrendingDown, Wallet, PieChart, Calendar } from 'lucide-react';
 import { useAuthStore } from '../store/authStore';
+import { useGoalsStore } from '../store/GoalStore';
 
 
 // Mock data - replace with real data later
@@ -24,6 +25,7 @@ const mockData = {
 
 const Dashboard = () => {
   const { user } = useAuthStore(); // Access user from Zustand store
+  const { goals, fetchGoals, loading, error } = useGoalsStore();
 
   return (
     <div className="space-y-6">
@@ -119,22 +121,28 @@ const Dashboard = () => {
             <h2 className="text-lg font-semibold text-gray-800">Financial Goals</h2>
           </div>
           <div className="p-6 space-y-6">
-            {mockData.goals.map((goal, index) => (
-              <div key={index}>
-                <div className="flex justify-between mb-2">
-                  <span className="text-sm font-medium text-gray-700">{goal.name}</span>
-                  <span className="text-sm text-gray-500">
-                    ${goal.current} of ${goal.target}
-                  </span>
+            {loading ? (
+              <p>Loading goals...</p>
+            ) : error ? (
+              <p className="text-red-600">{error}</p>
+            ) : (
+              goals.map((goal, index) => (
+                <div key={index}>
+                  <div className="flex justify-between mb-2">
+                    <span className="text-sm font-medium text-gray-700">{goal.name}</span>
+                    <span className="text-sm text-gray-500">
+                      ${goal.currentAmount} of ${goal.targetAmount}
+                    </span>
+                  </div>
+                  <div className="w-full bg-gray-100 rounded-full h-2.5">
+                    <div
+                      className="bg-blue-600 h-2.5 rounded-full"
+                      style={{ width: `${(goal.currentAmount / goal.targetAmount) * 100}%` }}
+                    ></div>
+                  </div>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2.5">
-                  <div
-                    className="bg-blue-600 h-2.5 rounded-full"
-                    style={{ width: `${(goal.current / goal.target) * 100}%` }}
-                  ></div>
-                </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </div>
       </div>

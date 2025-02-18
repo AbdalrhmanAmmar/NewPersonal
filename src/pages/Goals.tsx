@@ -1,65 +1,116 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Target, Calendar, DollarSign, Bell, Pencil, Trash2, ChevronRight, Trophy, AlertCircle } from 'lucide-react';
-
-// Mock data - replace with real data later
-const mockGoals = [
-  {
-    id: 1,
-    name: "Vacation Fund",
-    target: 5000,
-    current: 2000,
-    deadline: "2024-12-31",
-    monthlySavingsTarget: 250,
-    category: "Travel",
-    contributions: [
-      { date: "2024-03-01", amount: 500 },
-      { date: "2024-02-15", amount: 750 },
-      { date: "2024-02-01", amount: 750 },
-    ]
-  },
-  {
-    id: 2,
-    name: "Emergency Fund",
-    target: 10000,
-    current: 6000,
-    deadline: "2024-09-30",
-    monthlySavingsTarget: 500,
-    category: "Savings",
-    contributions: [
-      { date: "2024-03-01", amount: 1000 },
-      { date: "2024-02-15", amount: 2500 },
-      { date: "2024-02-01", amount: 2500 },
-    ]
-  },
-  {
-    id: 3,
-    name: "New Car",
-    target: 25000,
-    current: 8000,
-    deadline: "2025-06-30",
-    monthlySavingsTarget: 1000,
-    category: "Vehicle",
-    contributions: [
-      { date: "2024-03-01", amount: 2000 },
-      { date: "2024-02-15", amount: 3000 },
-      { date: "2024-02-01", amount: 3000 },
-    ]
-  }
-];
+import { useGoalsStore } from '../store/GoalStore';
+import { useAuthStore } from '../store/authStore';
+import { Goal } from '../lib/firebase';
 
 const Goals = () => {
   const [showAddGoal, setShowAddGoal] = useState(false);
-  const [selectedGoal, setSelectedGoal] = useState<number | null>(null);
+  const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
+  const { user } = useAuthStore();
+  const { goals, loading, error, createGoal, updateGoal, deleteGoal, fetchGoals } = useGoalsStore();
+
+  useEffect(() => {
+    if (user?.uid) {
+      fetchGoals(user.uid);
+    }
+  }, [user]);
+
+  const handleAddGoal = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    const newGoal: Goal = {
+      id: '', // Will be set by Firestore
+      userId: user?.uid || '',
+      name: formData.get('name') as string,
+      targetAmount: Number(formData.get('targetAmount')),
+      currentAmount: 0,
+      deadline: new Date(formData.get('deadline') as string),
+      category: formData.get('category') as string,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    try {
+      await createGoal(newGoal);
+      setShowAddGoal(false);
+    } catch (err) {
+      console.error('Error adding goal:', err);
+    }
+  };
+
+  const handleEditGoal = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (!selectedGoal) return;
+
+    const form = e.currentTarget;
+    const formData = new FormData(form);
+
+    const updatedGoal: Goal = {
+      ...selectedGoal,
+      name: formData.get('name') as string,
+      targetAmount: Number(formData.get('targetAmount')),
+      currentAmount: Number(formData.get('currentAmount')),
+      deadline: new Date(formData.get('deadline') as string),
+      category: formData.get('category') as string,
+      updatedAt: new Date()
+    };
+
+    try {
+      await updateGoal(selectedGoal.id, updatedGoal);
+      setSelectedGoal(null);
+    } catch (err) {
+      console.error('Error updating goal:', err);
+    }
+  };
+
+  const handleDeleteGoal = async (goalId: string) => {
+    if (window.confirm('Are you sure you want to delete this goal?') && user?.uid) {
+      try {
+        await deleteGoal(goalId, user.uid);
+      } catch (err) {
+        console.error('Error deleting goal:', err);
+      }
+    }
+  };
 
   const calculateProgress = (current: number, target: number) => {
     return (current / target) * 100;
   };
 
-  const getDaysRemaining = (deadline: string) => {
-    const today = new Date();
-    const deadlineDate = new Date(deadline);
-    const diffTime = deadlineDate.getTime() - today.getTime();
-    return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  const formatDate = (date: Date | string | number) => {
+    try {
+      const d = new Date(date);
+      if (isNaN(d.getTime())) {
+        return undefined;
+      }
+      return d.toISOString().split('T')[0];
+    } catch (error) {
+      return undefined;
+    }
+  };
+
+  const getDaysRemaining = (deadline: Date) => {
+    try {
+      const today = new Date();
+      const deadlineDate = new Date(deadline);
+      if (isNaN(deadlineDate.getTime())) {
+        return 0;
+      }
+      const diffTime = Math.max(deadlineDate.getTime() - today.getTime(), 0);
+      const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+      return days > 0 ? days : 0;
+    } catch (error) {
+      return 0;
+    }
+  };
+
+  const calculateMonthlyTarget = (targetAmount: number, currentAmount: number, daysRemaining: number) => {
+    if (daysRemaining <= 0) return 0;
+    const monthlyTarget = (targetAmount - currentAmount) / (daysRemaining / 30);
+    return isFinite(monthlyTarget) ? Math.max(monthlyTarget, 0) : 0;
   };
 
   const getProgressColor = (progress: number) => {
@@ -68,6 +119,14 @@ const Goals = () => {
     if (progress >= 25) return 'bg-yellow-500';
     return 'bg-red-500';
   };
+
+  if (loading) {
+    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+  }
+
+  if (error) {
+    return <div className="text-red-500">Error: {error}</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -88,9 +147,10 @@ const Goals = () => {
 
       {/* Goals Overview */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {mockGoals.map((goal) => {
-          const progress = calculateProgress(goal.current, goal.target);
+        {goals.map((goal) => {
+          const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
           const daysRemaining = getDaysRemaining(goal.deadline);
+          const monthlyTarget = calculateMonthlyTarget(goal.targetAmount, goal.currentAmount, daysRemaining);
           const progressColor = getProgressColor(progress);
 
           return (
@@ -103,10 +163,16 @@ const Goals = () => {
                   </div>
                   <div className="flex space-x-2">
                     <button
-                      onClick={() => setSelectedGoal(goal.id)}
+                      onClick={() => setSelectedGoal(goal)}
                       className="p-2 text-gray-400 hover:text-gray-600"
                     >
                       <Pencil className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGoal(goal.id)}
+                      className="p-2 text-red-400 hover:text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4" />
                     </button>
                   </div>
                 </div>
@@ -114,8 +180,8 @@ const Goals = () => {
                 {/* Progress Bar */}
                 <div className="mb-4">
                   <div className="flex justify-between text-sm mb-1">
-                    <span className="font-medium">${goal.current.toLocaleString()}</span>
-                    <span className="text-gray-500">of ${goal.target.toLocaleString()}</span>
+                    <span className="font-medium">${goal.currentAmount.toLocaleString()}</span>
+                    <span className="text-gray-500">of ${goal.targetAmount.toLocaleString()}</span>
                   </div>
                   <div className="w-full bg-gray-100 rounded-full h-2.5">
                     <div
@@ -136,25 +202,8 @@ const Goals = () => {
                   <div className="flex items-center text-sm">
                     <DollarSign className="w-4 h-4 text-gray-400 mr-2" />
                     <span className="text-gray-600">
-                      ${goal.monthlySavingsTarget} monthly target
+                      ${monthlyTarget.toFixed(2)} monthly target
                     </span>
-                  </div>
-                </div>
-
-                {/* Recent Activity */}
-                <div className="mt-4 pt-4 border-t border-gray-100">
-                  <h4 className="text-sm font-medium text-gray-700 mb-2">Recent Activity</h4>
-                  <div className="space-y-2">
-                    {goal.contributions.slice(0, 2).map((contribution, index) => (
-                      <div key={index} className="flex items-center justify-between text-sm">
-                        <span className="text-gray-500">
-                          {new Date(contribution.date).toLocaleDateString()}
-                        </span>
-                        <span className="font-medium text-green-600">
-                          +${contribution.amount}
-                        </span>
-                      </div>
-                    ))}
                   </div>
                 </div>
               </div>
@@ -162,10 +211,10 @@ const Goals = () => {
               {/* Action Footer */}
               <div className="px-6 py-4 bg-gray-50 rounded-b-xl border-t border-gray-100">
                 <button
-                  onClick={() => setSelectedGoal(goal.id)}
+                  onClick={() => setSelectedGoal(goal)}
                   className="w-full flex items-center justify-center px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50"
                 >
-                  Add Contribution
+                  Update Progress
                   <ChevronRight className="w-4 h-4 ml-2" />
                 </button>
               </div>
@@ -174,67 +223,23 @@ const Goals = () => {
         })}
       </div>
 
-      {/* Milestones and Achievements */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Recent Milestones */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Recent Milestones</h2>
-          <div className="space-y-4">
-            <div className="flex items-start space-x-3 p-4 bg-green-50 rounded-lg">
-              <Trophy className="w-5 h-5 text-green-600 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-green-800">Emergency Fund: 60% Complete!</p>
-                <p className="text-sm text-green-600">You're well on your way to your goal!</p>
-              </div>
-            </div>
-            <div className="flex items-start space-x-3 p-4 bg-blue-50 rounded-lg">
-              <Trophy className="w-5 h-5 text-blue-600 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-blue-800">Vacation Fund: 40% Milestone</p>
-                <p className="text-sm text-blue-600">Keep up the great work!</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Goal Insights */}
-        <div className="bg-white rounded-xl shadow-sm p-6">
-          <h2 className="text-lg font-semibold text-gray-800 mb-4">Goal Insights</h2>
-          <div className="space-y-4">
-            <div className="flex items-start space-x-3 p-4 bg-yellow-50 rounded-lg">
-              <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-yellow-800">New Car Goal: Slightly Behind</p>
-                <p className="text-sm text-yellow-600">
-                  Consider increasing monthly contributions by $100 to stay on track.
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start space-x-3 p-4 bg-purple-50 rounded-lg">
-              <Bell className="w-5 h-5 text-purple-600 flex-shrink-0" />
-              <div>
-                <p className="font-medium text-purple-800">Upcoming Milestone</p>
-                <p className="text-sm text-purple-600">
-                  You're just $500 away from reaching 50% of your Emergency Fund goal!
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Add Goal Modal */}
-      {showAddGoal && (
+      {/* Add/Edit Goal Modal */}
+      {(showAddGoal || selectedGoal) && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4">Create New Goal</h2>
-            <form className="space-y-4">
+            <h2 className="text-xl font-semibold mb-4">
+              {selectedGoal ? 'Edit Goal' : 'Create New Goal'}
+            </h2>
+            <form onSubmit={selectedGoal ? handleEditGoal : handleAddGoal} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Goal Name
                 </label>
                 <input
+                  name="name"
                   type="text"
+                  required
+                  defaultValue={selectedGoal?.name}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="e.g., Vacation Fund"
                 />
@@ -244,22 +249,49 @@ const Goals = () => {
                   Target Amount
                 </label>
                 <input
+                  name="targetAmount"
                   type="number"
+                  required
+                  min="0"
+                  step="0.01"
+                  defaultValue={selectedGoal?.targetAmount}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="Enter amount"
                 />
               </div>
+              {selectedGoal && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Current Amount
+                  </label>
+                  <input
+                    name="currentAmount"
+                    type="number"
+                    required
+                    min="0"
+                    step="0.01"
+                    defaultValue={selectedGoal.currentAmount}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                    placeholder="Enter current amount"
+                  />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Category
                 </label>
-                <select className="w-full px-3 py-2 border border-gray-300 rounded-md">
-                  <option>Travel</option>
-                  <option>Savings</option>
-                  <option>Vehicle</option>
-                  <option>Education</option>
-                  <option>Home</option>
-                  <option>Other</option>
+                <select
+                  name="category"
+                  required
+                  defaultValue={selectedGoal?.category}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
+                >
+                  <option value="Travel">Travel</option>
+                  <option value="Savings">Savings</option>
+                  <option value="Vehicle">Vehicle</option>
+                  <option value="Education">Education</option>
+                  <option value="Home">Home</option>
+                  <option value="Other">Other</option>
                 </select>
               </div>
               <div>
@@ -267,7 +299,10 @@ const Goals = () => {
                   Target Date
                 </label>
                 <input
+                  name="deadline"
                   type="date"
+                  required
+                  defaultValue={selectedGoal ? formatDate(selectedGoal.deadline) : undefined}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                 />
               </div>
@@ -276,11 +311,14 @@ const Goals = () => {
                   type="submit"
                   className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
                 >
-                  Create Goal
+                  {selectedGoal ? 'Update Goal' : 'Create Goal'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowAddGoal(false)}
+                  onClick={() => {
+                    setShowAddGoal(false);
+                    setSelectedGoal(null);
+                  }}
                   className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-md hover:bg-gray-200"
                 >
                   Cancel

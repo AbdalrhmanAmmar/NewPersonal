@@ -13,7 +13,7 @@ const Sidebar = () => {
     { path: '/expenses', label: 'Track Expenses', icon: <Receipt /> },
     { path: '/analytics', label: 'Analytics', icon: <PieChart /> },
     { path: '/goals', label: 'Goals', icon: <Target /> },
-    { path: '/settings', label: 'Settings', icon: <Settings /> },
+    // { path: '/settings', label: 'Settings', icon: <Settings /> },
   ];
 
   return (

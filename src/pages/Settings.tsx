@@ -14,14 +14,15 @@ import {
   Download,
   Upload,
   Trash2,
-  Shield,
-  Languages,
+
   FileText,
   Mail,
 } from 'lucide-react';
 import { useTheme } from '../contexts/ThemeContext';
+import { useAuthStore } from '../store/authStore';
 
-// Mock user data - replace with real data later
+  const { user } = useAuthStore();
+
 const mockUser = {
   name: 'John Doe',
   email: 'john.doe@example.com',

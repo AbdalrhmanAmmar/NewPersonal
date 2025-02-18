@@ -24,8 +24,8 @@ export const COLLECTIONS = {
   GOAL_CONTRIBUTIONS: "goal_contributions",
   RECURRING_EXPENSES: "recurring_expenses",
   BUDGETS: "budgets",
+  BALANCE: "balance",
 } as const;
-
 
 // Firestore data types
 export interface User {
@@ -38,19 +38,28 @@ export interface User {
   updatedAt: Date;
 }
 
+export interface Balance {
+  id: string;
+  userId: string;
+  amount: number;
+  type: 'deposit' | 'withdrawal';
+  description: string;
+  date: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 export interface Expense {
   id: string;
   userId: string;
   amount: number;
   description: string;
-  category: string; // Now a string instead of categoryId
+  category: string;
   date: Date;
   paymentMethod: string;
   createdAt: Date;
   updatedAt: Date;
 }
-
-
 
 export interface Goal {
   id: string;

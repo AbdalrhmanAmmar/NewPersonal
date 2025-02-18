@@ -24,7 +24,7 @@ function App() {
         <Route path="/expenses" element={<PrivateRoute><Expenses /></PrivateRoute>} />
         <Route path="/analytics" element={<PrivateRoute><Analytics /></PrivateRoute>} />
         <Route path="/goals" element={<PrivateRoute><Goals /></PrivateRoute>} />
-        <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} />
+        {/* <Route path="/settings" element={<PrivateRoute><Settings /></PrivateRoute>} /> */}
       </Route>
     </Routes>
   );

@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  DollarSign,
-  Calendar,
+
   RefreshCw,
   Plus,
   AlertCircle,
@@ -35,7 +34,8 @@ const mockSavingsGoals = [
 const Expenses = () => {
   const [showAddExpense, setShowAddExpense] = useState(false);
   const { user } = useAuthStore();
-  const { expenses, loading, error, addExpense, fetchExpenses } = useExpenseStore();
+  const { expenses, loading, error, addExpense, updateExpense, removeExpense, fetchExpenses } = useExpenseStore();
+  const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [newExpense, setNewExpense] = useState({
     description: '',
     amount: '',
@@ -49,15 +49,6 @@ const Expenses = () => {
     }
   }, [user]);
 
-  // Calculate category totals
-  const categoryTotals = expenses.reduce((acc, expense) => {
-    if (!acc[expense.category]) {
-      acc[expense.category] = { spent: 0, budget: categories[expense.category]?.budget || 0 };
-    }
-    acc[expense.category].spent += expense.amount;
-    return acc;
-  }, {...categories});
-
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user?.uid) return;
@@ -68,14 +59,19 @@ const Expenses = () => {
       amount: parseFloat(newExpense.amount),
       category: newExpense.category,
       date: new Date(newExpense.date),
-      paymentMethod: 'Card', // Default payment method
+      paymentMethod: 'Card',
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     try {
-      await addExpense(expenseData);
+      if (selectedExpense) {
+        await updateExpense(selectedExpense.id, { ...expenseData });
+      } else {
+        await addExpense(expenseData);
+      }
       setShowAddExpense(false);
+      setSelectedExpense(null);
       setNewExpense({
         description: '',
         amount: '',
@@ -83,12 +79,33 @@ const Expenses = () => {
         date: new Date().toISOString().split('T')[0],
       });
     } catch (err) {
-      console.error('Error adding expense:', err);
+      console.error('Error with expense:', err);
+    }
+  };
+
+  const handleEditExpense = (expense: Expense) => {
+    setSelectedExpense(expense);
+    setNewExpense({
+      description: expense.description,
+      amount: expense.amount.toString(),
+      category: expense.category,
+      date: new Date(expense.date).toISOString().split('T')[0],
+    });
+    setShowAddExpense(true);
+  };
+
+  const handleDeleteExpense = async (expenseId: string) => {
+    if (window.confirm('Are you sure you want to delete this expense?')) {
+      try {
+        await removeExpense(expenseId);
+      } catch (err) {
+        console.error('Error deleting expense:', err);
+      }
     }
   };
 
   const getCategoryName = (categoryId: string) => {
-    return categoryId; // Since we're using category names directly now
+    return categoryId;
   };
 
   if (loading) {
@@ -108,7 +125,16 @@ const Expenses = () => {
           <p className="text-gray-600">Manage and analyze your spending</p>
         </div>
         <button
-          onClick={() => setShowAddExpense(true)}
+          onClick={() => {
+            setSelectedExpense(null);
+            setNewExpense({
+              description: '',
+              amount: '',
+              category: 'Groceries',
+              date: new Date().toISOString().split('T')[0],
+            });
+            setShowAddExpense(true);
+          }}
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-4 h-4 mr-2" />
@@ -128,10 +154,12 @@ const Expenses = () => {
             <div className="p-6">
               <div className="space-y-4">
                 {expenses.map((expense) => (
-                  <ExpenseItem 
-                    key={expense.id} 
-                    expense={expense} 
+                  <ExpenseItem
+                    key={expense.id}
+                    expense={expense}
                     getCategoryName={getCategoryName}
+                    onEdit={handleEditExpense}
+                    onDelete={handleDeleteExpense}
                   />
                 ))}
               </div>
@@ -139,12 +167,12 @@ const Expenses = () => {
           </div>
 
           {/* Spending Trends */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
+          {/* <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Spending Trends</h2>
             <div className="h-64 flex items-center justify-center bg-gray-50 rounded-lg">
               <p className="text-gray-500">Monthly Spending Trend Chart</p>
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* Right Column - Summary and Insights */}
@@ -153,7 +181,7 @@ const Expenses = () => {
           <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Budget Overview</h2>
             <div className="space-y-4">
-              {Object.entries(categoryTotals).map(([category, { spent, budget }]) => (
+              {Object.entries(categories).map(([category, { spent, budget }]) => (
                 <div key={category}>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-600">{category}</span>
@@ -197,7 +225,7 @@ const Expenses = () => {
           </div>
 
           {/* Savings Goals */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
+          {/* <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Savings Goals</h2>
             <div className="space-y-4">
               {mockSavingsGoals.map((goal) => (
@@ -217,10 +245,10 @@ const Expenses = () => {
                 </div>
               ))}
             </div>
-          </div>
+          </div> */}
 
           {/* Savings Insights */}
-          <div className="bg-white rounded-xl shadow-sm p-6">
+          {/* <div className="bg-white rounded-xl shadow-sm p-6">
             <h2 className="text-lg font-semibold text-gray-800 mb-4">Savings Insights</h2>
             <div className="space-y-3">
               <div className="flex items-start space-x-3 p-3 bg-blue-50 rounded-lg">
@@ -233,15 +261,17 @@ const Expenses = () => {
                 </div>
               </div>
             </div>
-          </div>
+          </div> */}
         </div>
       </div>
 
-      {/* Add Expense Modal */}
+      {/* Add/Edit Expense Modal */}
       {showAddExpense && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4">Add New Expense</h2>
+            <h2 className="text-xl font-semibold mb-4">
+              {selectedExpense ? 'Edit Expense' : 'Add New Expense'}
+            </h2>
             <form onSubmit={handleAddExpense} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -305,11 +335,14 @@ const Expenses = () => {
                   type="submit"
                   className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
                 >
-                  Add Expense
+                  {selectedExpense ? 'Update Expense' : 'Add Expense'}
                 </button>
                 <button
                   type="button"
-                  onClick={() => setShowAddExpense(false)}
+                  onClick={() => {
+                    setShowAddExpense(false);
+                    setSelectedExpense(null);
+                  }}
                   className="flex-1 bg-gray-100 text-gray-700 py-2 rounded-md hover:bg-gray-200"
                 >
                   Cancel

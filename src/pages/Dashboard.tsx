@@ -4,6 +4,7 @@ import { useAuthStore } from '../store/authStore';
 import { useGoalsStore } from '../store/GoalStore';
 import { useExpenseStore } from '../store/useExpenseStore';
 import { useBalanceStore } from '../store/balanceStore';
+import FinancialChatbot from '../components/FinancialChatbot';
 
 const Dashboard = () => {
   const [showAddBalance, setShowAddBalance] = useState(false);
@@ -257,6 +258,9 @@ const Dashboard = () => {
           </div>
         </div>
       )}
+
+      {/* Financial Chatbot */}
+      <FinancialChatbot />
     </div>
   );
 };

@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { db, COLLECTIONS, Goal } from '../lib/firebase';
-import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, deleteDoc, doc, getDocs, query, where } from 'firebase/firestore';
 
 // Define the store type
 interface GoalsStore {
@@ -21,21 +21,22 @@ export const useGoalsStore = create<GoalsStore>((set) => ({
   goals: [],
   loading: false,
   error: null,
+
   setGoals: (goals: Goal[]) => set({ goals }),
   setLoading: (loading: boolean) => set({ loading }),
   setError: (error: string | null) => set({ error }),
+
   // Fetch goals for a specific user
   fetchGoals: async (userId: string) => {
     set({ loading: true, error: null });
     try {
       const goalsCollection = collection(db, COLLECTIONS.GOALS);
-      const querySnapshot = await getDocs(goalsCollection);
-      const userGoals = querySnapshot.docs
-        .map((doc) => {
-          const goalData = doc.data() as Goal;  // Explicitly cast the data to Goal type
-          return { ...goalData, id: doc.id };
-        })
-        .filter((goal: Goal) => goal.userId === userId);
+      const q = query(goalsCollection, where('userId', '==', userId)); // Filter by userId
+      const querySnapshot = await getDocs(q);
+      const userGoals = querySnapshot.docs.map((doc) => ({
+        ...(doc.data() as Goal),
+        id: doc.id,
+      }));
 
       set({ goals: userGoals });
     } catch (error) {
@@ -44,14 +45,14 @@ export const useGoalsStore = create<GoalsStore>((set) => ({
     } finally {
       set({ loading: false });
     }
-  },
+  },  // ✅ Added comma here to properly close `fetchGoals`
+
   // Create a new goal
   createGoal: async (goal: Goal) => {
     set({ loading: true, error: null });
     try {
       const docRef = await addDoc(collection(db, COLLECTIONS.GOALS), goal);
       console.log('Goal created with ID: ', docRef.id);
-      // Reload goals after creation
       await useGoalsStore.getState().fetchGoals(goal.userId);
     } catch (error) {
       console.error('Error creating goal:', error);
@@ -60,14 +61,14 @@ export const useGoalsStore = create<GoalsStore>((set) => ({
       set({ loading: false });
     }
   },
+
   // Update an existing goal
   updateGoal: async (goalId: string, updatedGoal: Goal) => {
     set({ loading: true, error: null });
     try {
       const goalRef = doc(db, COLLECTIONS.GOALS, goalId);
-      await updateDoc(goalRef, updatedGoal); // Use updatedGoal directly
+      await updateDoc(goalRef, updatedGoal);
       console.log('Goal updated successfully!');
-      // Reload goals after update
       await useGoalsStore.getState().fetchGoals(updatedGoal.userId);
     } catch (error) {
       console.error('Error updating goal:', error);
@@ -76,6 +77,7 @@ export const useGoalsStore = create<GoalsStore>((set) => ({
       set({ loading: false });
     }
   },
+
   // Delete a goal
   deleteGoal: async (goalId: string, userId: string) => {
     set({ loading: true, error: null });
@@ -83,7 +85,6 @@ export const useGoalsStore = create<GoalsStore>((set) => ({
       const goalRef = doc(db, COLLECTIONS.GOALS, goalId);
       await deleteDoc(goalRef);
       console.log('Goal deleted successfully!');
-      // Reload goals after deletion
       await useGoalsStore.getState().fetchGoals(userId);
     } catch (error) {
       console.error('Error deleting goal:', error);
@@ -91,5 +92,6 @@ export const useGoalsStore = create<GoalsStore>((set) => ({
     } finally {
       set({ loading: false });
     }
-  },
+  }
 }));
+

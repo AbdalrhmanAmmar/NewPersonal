@@ -1,8 +1,17 @@
 import { create } from "zustand";
 import { Expense } from "../lib/firebase";
-import { collection, addDoc, query, where, getDocs, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import {
+  collection,
+  addDoc,
+  query,
+  where,
+  getDocs,
+  doc,
+  updateDoc,
+  deleteDoc,
+  Timestamp,
+} from "firebase/firestore";
 import { db } from "../lib/firebase";
-import { Timestamp } from "firebase/firestore";
 
 interface ExpenseState {
   expenses: Expense[];
@@ -38,10 +47,10 @@ export const useExpenseStore = create<ExpenseState>((set) => ({
         return {
           id: doc.id,
           userId: data.userId,
-          amount: data.amount,
           description: data.description,
-          category: data.category, // Now a string
-          date: data.date.toDate(), // Convert Firestore Timestamp to Date
+          amount: data.amount,
+          category: data.category,
+          date: data.date.toDate(),
           paymentMethod: data.paymentMethod,
           createdAt: data.createdAt.toDate(),
           updatedAt: data.updatedAt.toDate(),
@@ -57,50 +66,85 @@ export const useExpenseStore = create<ExpenseState>((set) => ({
 
   addExpense: async (expense) => {
     try {
-      const newExpense = {
+      set({ loading: true, error: null });
+
+      const expenseData = {
         ...expense,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
+        date: Timestamp.fromDate(new Date(expense.date)),
+        createdAt: Timestamp.fromDate(new Date()),
+        updatedAt: Timestamp.fromDate(new Date()),
       };
-      const docRef = await addDoc(collection(db, "expenses"), newExpense);
+
+      const expensesRef = collection(db, "expenses");
+      const docRef = await addDoc(expensesRef, expenseData);
+
+      const newExpense = {
+        id: docRef.id,
+        ...expense,
+        date: new Date(expense.date),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
       set((state) => ({
-        expenses: [{ ...newExpense, id: docRef.id } as Expense, ...state.expenses],
+        expenses: [...state.expenses, newExpense as Expense],
+        loading: false,
       }));
     } catch (error) {
       console.error("Error adding expense:", error);
+      set({ error: (error as Error).message, loading: false });
       throw error;
     }
   },
 
   updateExpense: async (id, updatedExpense) => {
     try {
+      set({ loading: true, error: null });
+
       const expenseRef = doc(db, "expenses", id);
-      const updatedData = {
+      const updateData = {
         ...updatedExpense,
-        updatedAt: Timestamp.now(),
+        updatedAt: Timestamp.fromDate(new Date()),
       };
 
-      await updateDoc(expenseRef, updatedData);
+      if (updateData.date) {
+        updateData.date = Timestamp.fromDate(new Date(updateData.date));
+      }
+
+      await updateDoc(expenseRef, updateData);
 
       set((state) => ({
         expenses: state.expenses.map((expense) =>
-          expense.id === id ? { ...expense, ...updatedData } : expense
+          expense.id === id
+            ? {
+                ...expense,
+                ...updatedExpense,
+                updatedAt: new Date(),
+              }
+            : expense
         ),
+        loading: false,
       }));
     } catch (error) {
       console.error("Error updating expense:", error);
+      set({ error: (error as Error).message, loading: false });
       throw error;
     }
   },
 
   removeExpense: async (id) => {
     try {
-      await deleteDoc(doc(db, "expenses", id));
+      set({ loading: true, error: null });
+      const expenseRef = doc(db, "expenses", id);
+      await deleteDoc(expenseRef);
+
       set((state) => ({
         expenses: state.expenses.filter((expense) => expense.id !== id),
+        loading: false,
       }));
     } catch (error) {
-      console.error("Error deleting expense:", error);
+      console.error("Error removing expense:", error);
+      set({ error: (error as Error).message, loading: false });
       throw error;
     }
   },

@@ -42,7 +42,7 @@ export interface Balance {
   id: string;
   userId: string;
   amount: number;
-  type: 'deposit' | 'withdrawal';
+  type: "deposit" | "withdrawal";
   description: string;
   date: Date;
   createdAt: Date;
@@ -52,8 +52,8 @@ export interface Balance {
 export interface Expense {
   id: string;
   userId: string;
-  amount: number;
   description: string;
+  amount: number;
   category: string;
   date: Date;
   paymentMethod: string;

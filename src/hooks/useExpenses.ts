@@ -1,34 +1,63 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useAuthStore } from "../store/authStore";
 import { useCollection } from "./useCollection";
 import { Expense } from "../lib/firebase";
 import { useExpenseStore } from "../store/useExpenseStore";
+import { isEqual } from "lodash-es"; // or implement a simple deep comparison
 
 export function useExpenses() {
   const { user } = useAuthStore();
   const expenseStore = useExpenseStore();
 
-  const result = useCollection<Expense>(
-    "expenses",
-    user?.uid
-      ? [{ field: "userId", operator: "==", value: user.uid }]
-      : [], // Prevents running the query when user is not available
-    [{ field: "date", direction: "desc" }]
+  // Memoize filters to prevent unnecessary recreations
+  const filters = useMemo(
+    () =>
+      user?.uid ? [{ field: "userId", operator: "==", value: user.uid }] : [],
+    [user?.uid]
   );
 
+  const orderByFields = useMemo(
+    () => [{ field: "date", direction: "desc" as const }],
+    []
+  );
+
+  const result = useCollection<Expense>("expenses", filters, orderByFields, [
+    user?.uid,
+  ]);
+
+  // Effect to sync with expense store
   useEffect(() => {
     expenseStore.setLoading(result.loading);
 
     if (result.data) {
-      expenseStore.setExpenses(result.data);
+      // Only update if data actually changed
+      if (!isEqual(expenseStore.expenses, result.data)) {
+        expenseStore.setExpenses(result.data);
+      }
     } else if (!result.loading) {
-      expenseStore.setExpenses([]); // Ensure state resets if no data is found
+      expenseStore.setExpenses([]);
     }
 
     if (result.error) {
       expenseStore.setError(result.error);
     }
-  }, [JSON.stringify(result)]); // Ensures effect only runs when result changes significantly
+  }, [result.loading, result.data, result.error, expenseStore]);
 
-  return result;
+  // Optional: Clean up on unmount
+  useEffect(() => {
+    return () => {
+      expenseStore.setLoading(false);
+      expenseStore.setError(null);
+    };
+  }, [expenseStore]);
+
+  return {
+    expenses: result.data || [],
+    loading: result.loading,
+    error: result.error,
+    refresh: () => {
+      // You would need to modify useCollection to expose a refresh capability
+      // This is just a placeholder for the concept
+    },
+  };
 }

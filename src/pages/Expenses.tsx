@@ -1,14 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import {
-
-  RefreshCw,
-  Plus,
-  AlertCircle,
-} from 'lucide-react';
-import { useExpenseStore } from '../store/useExpenseStore';
-import { useAuthStore } from '../store/authStore';
-import ExpenseItem from '../components/ExpenseItem';
-import { Expense } from '../lib/firebase';
+import React, { useState, useEffect } from "react";
+import { RefreshCw, Plus } from "lucide-react";
+import { useExpenseStore } from "../store/useExpenseStore";
+import { useAuthStore } from "../store/authStore";
+import ExpenseItem from "../components/ExpenseItem";
+import { Expense } from "../lib/firebase";
 
 const categories = {
   Groceries: { spent: 0, budget: 400 },
@@ -20,27 +15,22 @@ const categories = {
 };
 
 const mockRecurring = [
-  { name: 'Netflix', amount: 15.99, nextDate: '2024-04-15' },
-  { name: 'Gym Membership', amount: 49.99, nextDate: '2024-04-01' },
-  { name: 'Internet Bill', amount: 79.99, nextDate: '2024-04-05' },
-];
-
-const mockSavingsGoals = [
-  { name: 'Vacation Fund', target: 3000, current: 1500 },
-  { name: 'Emergency Fund', target: 10000, current: 4000 },
-  { name: 'New Car', target: 20000, current: 5000 },
+  { name: "Netflix", amount: 15.99, nextDate: "2024-04-15" },
+  { name: "Gym Membership", amount: 49.99, nextDate: "2024-04-01" },
+  { name: "Internet Bill", amount: 79.99, nextDate: "2024-04-05" },
 ];
 
 const Expenses = () => {
   const [showAddExpense, setShowAddExpense] = useState(false);
   const { user } = useAuthStore();
-  const { expenses, loading, error, addExpense, updateExpense, removeExpense, fetchExpenses } = useExpenseStore();
+  const { expenses, loading, error, addExpense, removeExpense, fetchExpenses } =
+    useExpenseStore();
   const [selectedExpense, setSelectedExpense] = useState<Expense | null>(null);
   const [newExpense, setNewExpense] = useState({
-    description: '',
-    amount: '',
-    category: 'Groceries',
-    date: new Date().toISOString().split('T')[0],
+    description: "",
+    amount: "",
+    category: "Groceries",
+    date: new Date().toISOString().split("T")[0],
   });
 
   useEffect(() => {
@@ -51,35 +41,57 @@ const Expenses = () => {
 
   const handleAddExpense = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user?.uid) return;
-
-    const expenseData: Omit<Expense, 'id'> = {
-      userId: user.uid,
-      description: newExpense.description,
-      amount: parseFloat(newExpense.amount),
-      category: newExpense.category,
-      date: new Date(newExpense.date),
-      paymentMethod: 'Card',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    };
 
     try {
-      if (selectedExpense) {
-        await updateExpense(selectedExpense.id, { ...expenseData });
-      } else {
-        await addExpense(expenseData);
+      if (!user?.uid) {
+        alert("يرجى تسجيل الدخول أولاً");
+        return;
       }
+
+      if (!newExpense.description.trim()) {
+        alert("يرجى إدخال وصف المصروف");
+        return;
+      }
+
+      if (!newExpense.amount || parseFloat(newExpense.amount) <= 0) {
+        alert("يرجى إدخال مبلغ صحيح");
+        return;
+      }
+
+      if (!newExpense.category) {
+        alert("يرجى اختيار فئة المصروف");
+        return;
+      }
+
+      const expenseData = {
+        userId: user.uid,
+        description: newExpense.description.trim(),
+        amount: parseFloat(newExpense.amount),
+        category: newExpense.category,
+        date: new Date(newExpense.date),
+        paymentMethod: "Card",
+      };
+
+      console.log("Saving expense:", expenseData);
+      await addExpense(expenseData);
+
       setShowAddExpense(false);
-      setSelectedExpense(null);
       setNewExpense({
-        description: '',
-        amount: '',
-        category: 'Groceries',
-        date: new Date().toISOString().split('T')[0],
+        description: "",
+        amount: "",
+        category: "Groceries",
+        date: new Date().toISOString().split("T")[0],
       });
+
+      await fetchExpenses(user.uid);
+      alert("تمت إضافة المصروف بنجاح");
     } catch (err) {
-      console.error('Error with expense:', err);
+      console.error("خطأ في إضافة المصروف:", err);
+      alert(
+        err instanceof Error
+          ? `خطأ: ${err.message}`
+          : "حدث خطأ أثناء إضافة المصروف. حاول مرة أخرى."
+      );
     }
   };
 
@@ -89,17 +101,17 @@ const Expenses = () => {
       description: expense.description,
       amount: expense.amount.toString(),
       category: expense.category,
-      date: new Date(expense.date).toISOString().split('T')[0],
+      date: new Date(expense.date).toISOString().split("T")[0],
     });
     setShowAddExpense(true);
   };
 
   const handleDeleteExpense = async (expenseId: string) => {
-    if (window.confirm('Are you sure you want to delete this expense?')) {
+    if (window.confirm("Are you sure you want to delete this expense?")) {
       try {
         await removeExpense(expenseId);
       } catch (err) {
-        console.error('Error deleting expense:', err);
+        console.error("Error deleting expense:", err);
       }
     }
   };
@@ -109,7 +121,11 @@ const Expenses = () => {
   };
 
   if (loading) {
-    return <div className="flex justify-center items-center h-screen">Loading...</div>;
+    return (
+      <div className="flex justify-center items-center h-screen">
+        Loading...
+      </div>
+    );
   }
 
   if (error) {
@@ -128,10 +144,10 @@ const Expenses = () => {
           onClick={() => {
             setSelectedExpense(null);
             setNewExpense({
-              description: '',
-              amount: '',
-              category: 'Groceries',
-              date: new Date().toISOString().split('T')[0],
+              description: "",
+              amount: "",
+              category: "Groceries",
+              date: new Date().toISOString().split("T")[0],
             });
             setShowAddExpense(true);
           }}
@@ -149,7 +165,9 @@ const Expenses = () => {
           {/* Recent Expenses */}
           <div className="bg-white rounded-xl shadow-sm">
             <div className="p-6 border-b border-gray-100">
-              <h2 className="text-lg font-semibold text-gray-800">Recent Expenses</h2>
+              <h2 className="text-lg font-semibold text-gray-800">
+                Recent Expenses
+              </h2>
             </div>
             <div className="p-6">
               <div className="space-y-4">
@@ -179,32 +197,40 @@ const Expenses = () => {
         <div className="space-y-6">
           {/* Budget Overview */}
           <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Budget Overview</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Budget Overview
+            </h2>
             <div className="space-y-4">
-              {Object.entries(categories).map(([category, { spent, budget }]) => (
-                <div key={category}>
-                  <div className="flex justify-between text-sm mb-1">
-                    <span className="text-gray-600">{category}</span>
-                    <span className="text-gray-800">
-                      ${spent.toFixed(2)} / ${budget}
-                    </span>
+              {Object.entries(categories).map(
+                ([category, { spent, budget }]) => (
+                  <div key={category}>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-gray-600">{category}</span>
+                      <span className="text-gray-800">
+                        ${spent.toFixed(2)} / ${budget}
+                      </span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                      <div
+                        className={`h-2 rounded-full ${
+                          spent > budget ? "bg-red-500" : "bg-blue-500"
+                        }`}
+                        style={{
+                          width: `${Math.min((spent / budget) * 100, 100)}%`,
+                        }}
+                      ></div>
+                    </div>
                   </div>
-                  <div className="w-full bg-gray-100 rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full ${
-                        spent > budget ? 'bg-red-500' : 'bg-blue-500'
-                      }`}
-                      style={{ width: `${Math.min((spent / budget) * 100, 100)}%` }}
-                    ></div>
-                  </div>
-                </div>
-              ))}
+                )
+              )}
             </div>
           </div>
 
           {/* Recurring Expenses */}
           <div className="bg-white rounded-xl shadow-sm p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">Upcoming Payments</h2>
+            <h2 className="text-lg font-semibold text-gray-800 mb-4">
+              Upcoming Payments
+            </h2>
             <div className="space-y-4">
               {mockRecurring.map((item) => (
                 <div
@@ -270,7 +296,7 @@ const Expenses = () => {
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
           <div className="bg-white rounded-xl p-6 w-full max-w-md">
             <h2 className="text-xl font-semibold mb-4">
-              {selectedExpense ? 'Edit Expense' : 'Add New Expense'}
+              {selectedExpense ? "Edit Expense" : "Add New Expense"}
             </h2>
             <form onSubmit={handleAddExpense} className="space-y-4">
               <div>
@@ -280,7 +306,12 @@ const Expenses = () => {
                 <input
                   type="text"
                   value={newExpense.description}
-                  onChange={(e) => setNewExpense({ ...newExpense, description: e.target.value })}
+                  onChange={(e) =>
+                    setNewExpense({
+                      ...newExpense,
+                      description: e.target.value,
+                    })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="Enter description"
                   required
@@ -293,7 +324,9 @@ const Expenses = () => {
                 <input
                   type="number"
                   value={newExpense.amount}
-                  onChange={(e) => setNewExpense({ ...newExpense, amount: e.target.value })}
+                  onChange={(e) =>
+                    setNewExpense({ ...newExpense, amount: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   placeholder="Enter amount"
                   required
@@ -307,7 +340,9 @@ const Expenses = () => {
                 </label>
                 <select
                   value={newExpense.category}
-                  onChange={(e) => setNewExpense({ ...newExpense, category: e.target.value })}
+                  onChange={(e) =>
+                    setNewExpense({ ...newExpense, category: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   required
                 >
@@ -325,7 +360,9 @@ const Expenses = () => {
                 <input
                   type="date"
                   value={newExpense.date}
-                  onChange={(e) => setNewExpense({ ...newExpense, date: e.target.value })}
+                  onChange={(e) =>
+                    setNewExpense({ ...newExpense, date: e.target.value })
+                  }
                   className="w-full px-3 py-2 border border-gray-300 rounded-md"
                   required
                 />
@@ -335,7 +372,7 @@ const Expenses = () => {
                   type="submit"
                   className="flex-1 bg-blue-600 text-white py-2 rounded-md hover:bg-blue-700"
                 >
-                  {selectedExpense ? 'Update Expense' : 'Add Expense'}
+                  {selectedExpense ? "Update Expense" : "Add Expense"}
                 </button>
                 <button
                   type="button"
